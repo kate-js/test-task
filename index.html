@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Equalizer</title>
+    <style>
+      #gridContainer {
+        display: grid;
+        grid-template-columns: repeat(10, 30px);
+        grid-gap: 2px;
+      }
+      .gridItem {
+        width: 30px;
+        height: 30px;
+        background-color: grey;
+      }
+    </style>
+  </head>
+  <body>
+    <audio id="audio" autoplay></audio>
+    <input type="file" id="upload" accept="audio/*" />
+    <div id="gridContainer"></div>
+
+    <script>
+      const audio = document.getElementById("audio");
+      const gridContainer = document.getElementById("gridContainer");
+      const size = 10;
+
+      const createEmptyGrid = () => {
+        for (let i = 0; i < size * size; i++) {
+          const div = document.createElement("div");
+          div.classList.add("gridItem");
+          gridContainer.appendChild(div);
+        }
+      };
+
+      createEmptyGrid();
+
+      const gridItems = document.querySelectorAll(".gridItem");
+
+      document.getElementById("upload").addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        const fileUrl = window.URL.createObjectURL(file);
+        audio.setAttribute("controls", "controls");
+        audio.src = fileUrl;
+
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaElementSource(audio);
+        source.connect(audioContext.destination);
+        visualize(audioContext, source);
+      });
+
+      function visualize(audioContext, source) {
+        const analyser = audioContext.createAnalyser();
+        source.connect(analyser);
+        analyser.fftSize = 1024;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          requestAnimationFrame(draw);
+
+          analyser.getByteFrequencyData(dataArray); // array of 0-255
+          const step = Math.floor(dataArray.length / size); // Divide the array into 10 columns
+
+          for (let i = 0; i < size; i++) {
+            let sum = 0;
+            for (let j = 0; j < step; j++) {
+              sum += dataArray[i * step + j]; // sum of frequency in column
+            }
+
+            const average = sum / step; // average intensity for the column
+            const intensity = Math.floor((average / 255) * size); // map to 0-10
+
+            for (let k = 0; k < size; k++) {
+              const gridIndex = k * size + i; // index for the grid item
+              const gridItem = gridItems[gridIndex];
+
+              // lower in the column (higher index): active by intensity
+              gridItem.style.backgroundColor = size - k <= intensity ? "#99ffaa" : "grey";
+            }
+          }
+        }
+
+        draw();
+      }
+    </script>
+  </body>
+</html>
